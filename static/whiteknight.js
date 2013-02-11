@@ -484,7 +484,7 @@ main()
 }
 
 function
-eater()
+eater(event)
 {
 	if (typeof (event.preventDefault) === 'function')
 		event.preventDefault();
@@ -517,21 +517,19 @@ var OTHER_PRINTING = '!@#$%^&*()_+-={}|[]\\;:\'",<.>/?`~';
 function
 keypress_listener(event)
 {
-	console.log('keypress: ' + event.keyCode);
+	var cc = event.keyCode || event.which;
+	console.log('keypress: ' + cc);
 	if (typeof (event.preventDefault) === 'function')
 		event.preventDefault();
 	if (typeof (event.stopPropagation) === 'function')
 		event.stopPropagation();
 
-	var cc = event.keyCode;
 	var c = String.fromCharCode(cc);
-	if (cc >= 1 && cc <= 31) {
+	if (!event.ctrlKey && cc >= CC_A && cc <= CC_Z) {
 		socket.emit('keystroke', { str: c });
-	} else if (cc >= CC_A && cc <= CC_Z) {
+	} else if (!event.ctrlKey && cc >= CC_a && cc <= CC_z) {
 		socket.emit('keystroke', { str: c });
-	} else if (cc >= CC_a && cc <= CC_z) {
-		socket.emit('keystroke', { str: c });
-	} else if (cc >= CC_0 && cc <= CC_9) {
+	} else if (!event.ctrlKey && cc >= CC_0 && cc <= CC_9) {
 		socket.emit('keystroke', { str: c });
 	} else if (OTHER_PRINTING.indexOf(c) !== -1) {
 		socket.emit('keystroke', { str: c });
@@ -540,6 +538,7 @@ keypress_listener(event)
 	return (false);
 }
 
+
 function
 keydown_listener(event)
 {
@@ -547,37 +546,48 @@ keydown_listener(event)
 
 	var cc = event.keyCode;
 	switch (cc) {
-		case 8: // backspace
-			socket.emit('keystroke', { str: '\b' });
-			break;
-		case 9: // tab
-			socket.emit('keystroke', { str: '\t' });
-			break;
-		case 13: // enter
-			socket.emit('keystroke', { str: '\r' });
-			break;
-		case 27: // escape
-			socket.emit('keystroke', { str: '\u001b' });
-			break;
-		case 32: // space
-			socket.emit('keystroke', { str: ' ' });
-			break;
-		case 37: // left arrow
-			socket.emit('keystroke', { str: '\u001b[D' });
-			break;
-		case 38: // up arrow
-			socket.emit('keystroke', { str: '\u001b[A' });
-			break;
-		case 39: // right arrow
-			socket.emit('keystroke', { str: '\u001b[C' });
-			break;
-		case 40: // down arrow
-			socket.emit('keystroke', { str: '\u001b[B' });
-			break;
-		default:
+	case 8: // backspace
+		socket.emit('keystroke', { str: '\b' });
+		break;
+	case 9: // tab
+		socket.emit('keystroke', { str: '\t' });
+		break;
+	case 13: // enter
+		socket.emit('keystroke', { str: '\r' });
+		break;
+	case 27: // escape
+		socket.emit('keystroke', { str: '\u001b' });
+		break;
+	case 32: // space
+		socket.emit('keystroke', { str: ' ' });
+		break;
+	case 37: // left arrow
+		socket.emit('keystroke', { str: '\u001b[D' });
+		break;
+	case 38: // up arrow
+		socket.emit('keystroke', { str: '\u001b[A' });
+		break;
+	case 39: // right arrow
+		socket.emit('keystroke', { str: '\u001b[C' });
+		break;
+	case 40: // down arrow
+		socket.emit('keystroke', { str: '\u001b[B' });
+		break;
+	default:
+		/*
+		 * Deal with ASCII control characters and Firefox:
+		 */
+		if (cc >= CC_A && cc <= CC_Z && event.ctrlKey) {
+			cc -= CC_A - 1;
+			socket.emit('keystroke', {
+				str: String.fromCharCode(cc)
+			});
+		} else {
 			return (true);
+		}
+		break;
 	}
-	console.log('SUPRESS');
+
 	if (typeof (event.preventDefault) === 'function')
 		event.preventDefault();
 	if (typeof (event.stopPropagation) === 'function')
