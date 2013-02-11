@@ -438,7 +438,7 @@ main()
 
 	var elem;
 	elem = document.createElement('h1');
-	elem.innerHTML = 'Welcome to Shared Shell!';
+	elem.innerHTML = 'Welcome to White Knight!';
 	topdiv.appendChild(elem);
 	topdiv.appendChild(document.createElement('br'));
 
