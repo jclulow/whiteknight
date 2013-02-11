@@ -1,7 +1,5 @@
 #!/usr/bin/env node
 
-
-var pty = require('pty.js');
 var socket_io = require('socket.io');
 var http = require('http');
 var fs = require('fs');
