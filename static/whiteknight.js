@@ -456,8 +456,9 @@ main()
 	topdiv.appendChild(errormsg);
 	topdiv.appendChild(document.createElement('br'));
 
-	//socket = io.connect('http://localhost:8091');
-	socket = io.connect();
+	socket = io.connect('', {
+		resource: 'wk-socket-io'
+	});
 	socket.on('sorry', function (msg) {
 		SESSION_NAME = null;
 		errormsg.innerHTML = msg.message;

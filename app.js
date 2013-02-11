@@ -10,6 +10,10 @@ var tls = require('tls');
 var hs = http.createServer(handler);
 var io = require('socket.io').listen(hs);
 
+if (process.env.BUSTED_PROXY)
+	io.set('transports', [ 'xhr-polling', 'jsonp-polling' ]);
+io.set('resource', '/wk-socket-io');
+
 var BUFFER_EMPTY = new Buffer(0);
 
 var MSG_REQ_SESSION = 0xC000;
@@ -27,7 +31,7 @@ var SERVER_CERT = fs.readFileSync(path.join(__dirname, 'server.crt'));
 
 
 var PORT = 8091;
-hs.listen(PORT, function() {
+hs.listen(PORT, 'localhost', function() {
 	console.log('listening on port ' + PORT);
 });
 
