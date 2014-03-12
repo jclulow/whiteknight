@@ -16,9 +16,13 @@ var LOG = mod_bunyan.createLogger({
 var SERVER = http.createServer(handler);
 var SOCKET_IO = require('socket.io').listen(SERVER);
 
-if (process.env.BUSTED_PROXY)
+//if (process.env.BUSTED_PROXY)
 	SOCKET_IO.set('transports', [ 'xhr-polling', 'jsonp-polling' ]);
 SOCKET_IO.set('resource', '/whiteknight/socket.io');
+SOCKET_IO.set('heartbeats', true);
+SOCKET_IO.set('close timeout', 20);
+SOCKET_IO.set('heartbeat timeout', 20);
+SOCKET_IO.set('heartbeat interval', 7);
 
 var BUFFER_EMPTY = new Buffer(0);
 
@@ -75,7 +79,7 @@ function send_status_line(S)
 	var parties = SOCKET_IO.sockets.clients(S.roomname);
 	var ipaddrs = parties.map(function(party) {
 		return (party._wk_username + ' (' +
-		    party.handshake.address.address + ')');
+		    party._wk_ipaddr + ')');
 	});
 	var status_line = 'connected. users: ' + ipaddrs.join(', ');
 	SOCKET_IO.sockets.in(S.roomname).emit('status_line', {
@@ -166,6 +170,7 @@ join_session(socket, session_name)
 		    socket.handshake.headers['x-forwarded-for'] ||
 		    socket.handshake.address.address;
 	}
+	socket._wk_ipaddr = ipaddr;
 
 	/*
 	 * Send the backlog to the client:
