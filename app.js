@@ -159,6 +159,14 @@ join_session(socket, session_name)
 	}
 	var S = SESSIONS[session_name];
 
+	var username = socket._wk_username;
+	var ipaddr = socket.handshake.address.address;
+	if (ipaddr === '127.0.0.1') {
+		ipaddr = socket.handshake.headers['x-real-ip'] ||
+		    socket.handshake.headers['x-forwarded-for'] ||
+		    socket.handshake.address.address;
+	}
+
 	/*
 	 * Send the backlog to the client:
 	 */
@@ -178,8 +186,7 @@ join_session(socket, session_name)
 	socket.on('disconnect', function() {
 		socket.leave(S.roomname);
 		if (S.shaft !== null) {
-			var ipaddr = socket.handshake.address.address;
-			var buf = new Buffer(ipaddr + ' has left');
+			var buf = new Buffer(ipaddr + ' (' + username + ') has left');
 			S.shaft.send(MSG_LOG_MESSAGE, buf);
 		}
 		send_status_line(S);
@@ -205,8 +212,7 @@ join_session(socket, session_name)
 	 * Emit a log message on the shaft client console.
 	 */
 	if (S.shaft !== null) {
-		var ipaddr = socket.handshake.address.address;
-		var buf = new Buffer(ipaddr + ' has joined');
+		var buf = new Buffer(ipaddr + ' (' + username + ') has joined');
 		S.shaft.send(MSG_LOG_MESSAGE, buf);
 	}
 }

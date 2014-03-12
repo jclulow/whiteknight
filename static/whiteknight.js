@@ -469,7 +469,7 @@ main()
 	topdiv.appendChild(document.createElement('br'));
 
 	socket = io.connect('', {
-		resource: 'wk-socket-io'
+		resource: 'whiteknight/socket.io'
 	});
 	socket.on('sorry', function (msg) {
 		SESSION_NAME = null;
