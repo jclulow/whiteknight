@@ -27,6 +27,7 @@ var UPDATE_DOM = true;
 var STATUS_DIV = null;
 
 var SESSION_NAME = null;
+var USER_NAME = null;
 
 var termStyleBase = [
     'font: 20px Monospace',
@@ -412,7 +413,8 @@ terminal_main()
 	});
 	socket.on('reconnect', function() {
 		socket.emit('register', {
-			session_name: SESSION_NAME
+			session_name: SESSION_NAME,
+			user_name: USER_NAME
 		});
 	});
 	socket.on('disconnect', function() {
@@ -440,6 +442,16 @@ main()
 	elem = document.createElement('h1');
 	elem.innerHTML = 'Welcome to White Knight!';
 	topdiv.appendChild(elem);
+	topdiv.appendChild(document.createElement('br'));
+
+	elem = document.createElement('div');
+	elem.innerHTML = 'Please Enter A Nickname:';
+	topdiv.appendChild(elem);
+	topdiv.appendChild(document.createElement('br'));
+
+	var nameinput = document.createElement('input');
+	nameinput.setAttribute('style', 'font: 40px Monospace;');
+	topdiv.appendChild(nameinput);
 	topdiv.appendChild(document.createElement('br'));
 
 	elem = document.createElement('div');
@@ -473,14 +485,21 @@ main()
 
 	textinput.addEventListener('keypress', function(x) {
 		if (x.keyCode === 13) {
+			USER_NAME = nameinput.value.trim();
+			if (!USER_NAME) {
+				errormsg.innerHTML = 'Sorry, please ' +
+				    'provide a nickname!';
+				return;
+			}
 			SESSION_NAME = textinput.value.
 			    toUpperCase().trim();
 			socket.emit('register', {
-				session_name: SESSION_NAME
+				session_name: SESSION_NAME,
+				user_name: USER_NAME
 			});
 		}
 	});
-	textinput.focus();
+	nameinput.focus();
 }
 
 function

@@ -65,9 +65,10 @@ function send_status_line(S)
 {
 	var parties = io.sockets.clients(S.roomname);
 	var ipaddrs = parties.map(function(party) {
-		return (party.handshake.address.address);
+		return (party._wk_username + ' (' +
+		    party.handshake.address.address + ')');
 	});
-	var status_line = 'connected. parties: ' + ipaddrs.join(', ');
+	var status_line = 'connected. users: ' + ipaddrs.join(', ');
 	io.sockets.in(S.roomname).emit('status_line', {
 		status_line: status_line
 	});
@@ -200,6 +201,7 @@ join_session(socket, session_name)
 
 io.sockets.on('connection', function(socket) {
 	socket.on('register', function(msg) {
+		socket._wk_username = msg.user_name;
 		join_session(socket, msg.session_name);
 	});
 });
