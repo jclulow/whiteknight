@@ -5,14 +5,20 @@ var http = require('http');
 var fs = require('fs');
 var path = require('path');
 var tls = require('tls');
+var mod_bunyan = require('bunyan');
 
+var LOG = mod_bunyan.createLogger({
+	name: 'whiteknight',
+	level: process.env.LOG_LEVEL || mod_bunyan.INFO,
+	serializers: mod_bunyan.stdSerializers
+});
 
-var hs = http.createServer(handler);
-var io = require('socket.io').listen(hs);
+var SERVER = http.createServer(handler);
+var SOCKET_IO = require('socket.io').listen(SERVER);
 
 if (process.env.BUSTED_PROXY)
-	io.set('transports', [ 'xhr-polling', 'jsonp-polling' ]);
-io.set('resource', '/wk-socket-io');
+	SOCKET_IO.set('transports', [ 'xhr-polling', 'jsonp-polling' ]);
+SOCKET_IO.set('resource', '/whiteknight/socket.io');
 
 var BUFFER_EMPTY = new Buffer(0);
 
@@ -31,19 +37,22 @@ var SERVER_CERT = fs.readFileSync(path.join(__dirname, 'server.crt'));
 
 
 var PORT = 8091;
-hs.listen(PORT, 'localhost', function() {
-	console.log('listening on port ' + PORT);
+SERVER.listen(PORT, 'localhost', function() {
+	LOG.info('listening on port ' + PORT);
 });
 
 function
 handler(req, res) {
-	console.log(req.method + ' ' + req.url);
+	LOG.info({
+		req: req,
+		res: res
+	}, 'http request');
 	if (req.method === 'GET') {
-		if (req.url === '/') {
+		if (req.url === '/whiteknight' || req.url === '/whiteknight/') {
 			res.writeHead(200);
 			res.end(fs.readFileSync(path.join(__dirname,
 			    'static', 'whiteknight.html')));
-		} else if (req.url === '/whiteknight.js') {
+		} else if (req.url === '/whiteknight/whiteknight.js') {
 			res.writeHead(200);
 			res.end(fs.readFileSync(path.join(__dirname,
 			    'static', 'whiteknight.js')));
@@ -63,13 +72,13 @@ var SOCKETS = [];
 
 function send_status_line(S)
 {
-	var parties = io.sockets.clients(S.roomname);
+	var parties = SOCKET_IO.sockets.clients(S.roomname);
 	var ipaddrs = parties.map(function(party) {
 		return (party._wk_username + ' (' +
 		    party.handshake.address.address + ')');
 	});
 	var status_line = 'connected. users: ' + ipaddrs.join(', ');
-	io.sockets.in(S.roomname).emit('status_line', {
+	SOCKET_IO.sockets.in(S.roomname).emit('status_line', {
 		status_line: status_line
 	});
 }
@@ -110,16 +119,16 @@ send_data(S, datafull)
 	var bracketing = (datafull.length > CHSZ);
 
 	if (bracketing)
-		io.sockets.in(S.roomname).emit('disable_dom', {});
+		SOCKET_IO.sockets.in(S.roomname).emit('disable_dom', {});
 
-	io.sockets.in(S.roomname).emit('sync', { data: datafull });
+	SOCKET_IO.sockets.in(S.roomname).emit('sync', { data: datafull });
 	S.data += datafull;
 
 	if (bracketing) {
 		if (S.timeout)
 			clearTimeout(S.timeout);
 		S.timeout = setTimeout(function() {
-			io.sockets.in(S.roomname).emit('enable_dom', {});
+			SOCKET_IO.sockets.in(S.roomname).emit('enable_dom', {});
 			S.timeout = null;
 		}, 60);
 	}
@@ -130,7 +139,7 @@ send_exit(S)
 {
 	var data0 = '\r\n\r\n ** Process exited.\r\n';
 
-	io.sockets.in(S.roomname).emit('sync', { data: data0 });
+	SOCKET_IO.sockets.in(S.roomname).emit('sync', { data: data0 });
 	S.data += data0;
 }
 
@@ -175,8 +184,11 @@ join_session(socket, session_name)
 		}
 		send_status_line(S);
 		if (S.shaft === null &&
-		    io.sockets.clients(S.roomname).length === 0) {
-			console.log(' * 2deleting ' + S.name);
+		    SOCKET_IO.sockets.clients(S.roomname).length === 0) {
+			LOG.info({
+				roomname: S.roomname,
+				name: S.name
+			}, 'deleting (2)');
 			delete SESSIONS[S.cname];
 		}
 	});
@@ -199,7 +211,7 @@ join_session(socket, session_name)
 	}
 }
 
-io.sockets.on('connection', function(socket) {
+SOCKET_IO.sockets.on('connection', function(socket) {
 	socket.on('register', function(msg) {
 		socket._wk_username = msg.user_name;
 		join_session(socket, msg.session_name);
@@ -226,7 +238,9 @@ new_shaft(conn)
 	conn.setNoDelay(true);
 	var shaft = new Shaft(conn);
 
-	console.log(' * shell client connected from ' + conn.remoteAddress);
+	LOG.info({
+		remote: conn.remoteAddress
+	}, 'shell client connected');
 
 	shaft.on('message', function(msgtype, msgbuf) {
 		if (S === null) {
@@ -240,7 +254,9 @@ new_shaft(conn)
 					sn = new_session_name();
 					csn = clean_session_name(sn);
 				}
-				console.log(' * new session: ' + sn);
+				LOG.info({
+					session: sn
+				}, 'new session');
 				SESSIONS[csn] = S = {
 					name: sn,
 					cname: csn,
@@ -254,8 +270,9 @@ new_shaft(conn)
 				shaft.send(MSG_NEW_SESSION, new Buffer(sn,
 				    'ascii'));
 			} else {
-				console.log(' * unknown message: ' +
-				    msgtype);
+				LOG.warn({
+					message_type: msgtype
+				}, 'unknown message');
 				shaft.end();
 			}
 		} else {
@@ -273,11 +290,16 @@ new_shaft(conn)
 		}
 	});
 	shaft.once('end', function() {
-		console.log(' * shell client end');
+		LOG.info({
+			remote: conn.remoteAddress
+		}, 'shell client end');
 		if (S !== null) {
 			S.shaft = null;
-			if (io.sockets.clients(S.roomname).length === 0) {
-				console.log(' * deleting ' + S.name);
+			if (SOCKET_IO.sockets.clients(S.roomname).length === 0) {
+				LOG.info({
+					name: S.name,
+					roomname: S.roomname
+				}, 'deleting');
 				delete SESSIONS[S.cname];
 			}
 		}
@@ -286,7 +308,7 @@ new_shaft(conn)
 
 var SHAFT_PORT = 10502;
 server_shaft.listen(SHAFT_PORT, function() {
-	console.log(' * listening for shell clients on ' + SHAFT_PORT);
+	LOG.info('listening for shell clients on ' + SHAFT_PORT);
 });
 
 
